@@ -24,7 +24,7 @@
             );
 
             // Replace 'your-geojson-url' with the URL to your GeoJSON file
-            fetch("/interactive-map-indo/indo-province.json")
+            fetch("/interactive-map-indo/indo-province.geojson")
                 .then((response) => response.json())
                 .then((data) => {
                     L.geoJSON(data, {
