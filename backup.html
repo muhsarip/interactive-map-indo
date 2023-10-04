@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Interactive Map</title>
+        <link
+            rel="stylesheet"
+            href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css"
+        />
+        <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    </head>
+    <body>
+        <div id="map" style="width: 100%; height: 500px"></div>
+        <button onclick="clearSelection()">Clear Selection</button>
+        <div id="selectedProvinceInfo"></div>
+
+        <script>
+            const map = L.map("map").setView([-2.5, 118], 5);
+            var selectedProvinceLayer = null;
+            var selectedProvinceInfo = document.getElementById(
+                "selectedProvinceInfo"
+            );
+
+            // Replace 'your-geojson-url' with the URL to your GeoJSON file
+            fetch(
+                "https://raw.githubusercontent.com/superpikar/indonesia-geojson/master/indonesia-province.json"
+            )
+                .then((response) => response.json())
+                .then((data) => {
+                    L.geoJSON(data, {
+                        onEachFeature: function (feature, layer) {
+                            // Add a click event listener to each province polygon
+                            layer.on("click", function (e) {
+                                console.log(feature);
+                                clearSelection();
+                                selectedProvinceLayer = e.target;
+                                selectedProvinceLayer.setStyle({
+                                    fillOpacity: 0.5,
+                                });
+                                selectedProvinceInfo.innerText =
+                                    "Selected Province: " +
+                                    feature.properties.Propinsi;
+                                generateRandomMarkers(); // Automatically generate random markers
+                            });
+                        },
+                    }).addTo(map);
+                });
+
+            // Function to generate random markers within the selected province polygon
+            function generateRandomMarkers() {
+                // Check if a province is selected
+                if (!selectedProvinceLayer) {
+                    return;
+                }
+
+                // Clear any existing markers
+                clearMarkers();
+
+                var selectedProvince = selectedProvinceLayer.feature.geometry;
+
+                // Calculate the bounding box of the selected province polygon
+                var bbox = selectedProvince.coordinates.reduce(
+                    function (bbox, coord) {
+                        return [
+                            Math.min(bbox[0], coord[0]),
+                            Math.min(bbox[1], coord[1]),
+                            Math.max(bbox[2], coord[0]),
+                            Math.max(bbox[3], coord[1]),
+                        ];
+                    },
+                    [Infinity, Infinity, -Infinity, -Infinity]
+                );
+
+                // Generate random points within the bounding box
+                var randomPoints = [];
+                for (var i = 0; i < 5; i++) {
+                    // Change 5 to the number of markers you want
+                    var randomLat =
+                        bbox[1] + Math.random() * (bbox[3] - bbox[1]);
+                    var randomLng =
+                        bbox[0] + Math.random() * (bbox[2] - bbox[0]);
+                    var randomPoint = [randomLat, randomLng];
+
+                    // Check if the random point is inside the selected province polygon
+                    if (
+                        isPointInPolygon(
+                            randomPoint,
+                            selectedProvince.coordinates[0]
+                        )
+                    ) {
+                        randomPoints.push(randomPoint);
+                    }
+                }
+
+                // Add markers for the random points
+                randomPoints.forEach(function (coordinates) {
+                    L.marker(coordinates.reverse()).addTo(map);
+                });
+            }
+
+            // Function to clear the selected province and markers
+            function clearSelection() {
+                if (selectedProvinceLayer) {
+                    selectedProvinceLayer.setStyle({ fillOpacity: 0 });
+                    selectedProvinceLayer = null;
+                    selectedProvinceInfo.innerText = "";
+                    clearMarkers();
+                }
+            }
+
+            // Function to clear any existing markers
+            function clearMarkers() {
+                map.eachLayer(function (layer) {
+                    if (layer instanceof L.Marker) {
+                        map.removeLayer(layer);
+                    }
+                });
+            }
+
+            // Function to check if a point is inside a polygon
+            function isPointInPolygon(point, polygon) {
+                var x = point[0],
+                    y = point[1];
+                var inside = false;
+
+                for (
+                    var i = 0, j = polygon.length - 1;
+                    i < polygon.length;
+                    j = i++
+                ) {
+                    var xi = polygon[i][0],
+                        yi = polygon[i][1];
+                    var xj = polygon[j][0],
+                        yj = polygon[j][1];
+
+                    var intersect =
+                        yi > y != yj > y &&
+                        x < ((xj - xi) * (y - yi)) / (yj - yi) + xi;
+
+                    if (intersect) inside = !inside;
+                }
+
+                return inside;
+            }
+        </script>
+    </body>
+</html>

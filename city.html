@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Interactive Map</title>
+        <link
+            rel="stylesheet"
+            href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css"
+        />
+        <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/Turf.js/6.3.0/turf.min.js"></script>
+    </head>
+    <body>
+        <div id="map" style="width: 100%; height: 500px"></div>
+        <button onclick="clearSelection()">Clear Selection</button>
+        <div id="selectedProvinceInfo"></div>
+
+        <script>
+            const map = L.map("map").setView([-2.5, 118], 5);
+            var selectedProvinceLayer = null;
+            var selectedProvinceInfo = document.getElementById(
+                "selectedProvinceInfo"
+            );
+
+            // Replace 'your-geojson-url' with the URL to your GeoJSON file
+            fetch("indo-city.json")
+                .then((response) => response.json())
+                .then((data) => {
+                    L.geoJSON(data, {
+                        onEachFeature: function (feature, layer) {
+                            // Add a click event listener to each province polygon
+                            layer.on("click", function (e) {
+                                console.log(feature);
+                                clearSelection();
+                                selectedProvinceLayer = e.target;
+                                selectedProvinceLayer.setStyle({
+                                    fillOpacity: 0.5,
+                                });
+                                selectedProvinceInfo.innerText =
+                                    "Selected Province: " +
+                                    feature.properties.Propinsi
+                                        ? feature.properties.Propinsi
+                                        : feature.properties.Shape_Area;
+                                zoomToSelectedProvince(); // Zoom to the selected province
+                                generateRandomMarkers(); // Automatically generate random markers
+                            });
+                        },
+                    }).addTo(map);
+                });
+
+            // Function to generate random markers within the selected province polygon
+            function generateRandomMarkers() {
+                console.log("fire");
+                // Check if a province is selected
+                if (!selectedProvinceLayer) {
+                    console.log("empty");
+                    return;
+                }
+                //Clear any existing markers
+                removeMarkers();
+
+                // Clear any existing markers
+                clearMarkers();
+                return;
+
+                var selectedProvince = selectedProvinceLayer.feature.geometry;
+
+                // Convert the coordinates to an array of arrays
+                var coordinates = selectedProvince.coordinates[0].map(function (
+                    coord
+                ) {
+                    return [coord[1], coord[0]]; // Swap lat and lng
+                });
+
+                // Add the first coordinate at the end to close the ring
+                coordinates.push(coordinates[0]);
+
+                // Create a turf.js polygon from the selected province's coordinates
+                var turfPolygon = turf.polygon([coordinates]);
+
+                // Generate random points within the turf.js polygon
+                var randomPoints = turf.randomPoint(5, {
+                    bbox: turf.bbox(turfPolygon),
+                });
+
+                // Add markers for the random points
+                randomPoints.features.forEach(function (point) {
+                    var coordinates = point.geometry.coordinates;
+                    L.marker([coordinates[1], coordinates[0]]).addTo(map);
+                });
+            }
+
+            // Function to clear any existing markers
+            function clearMarkers() {
+                map.eachLayer(function (layer) {
+                    if (layer instanceof L.Marker) {
+                        map.removeLayer(layer);
+                    }
+                });
+            }
+
+            // Function to remove any existing markers
+            function removeMarkers() {
+                map.eachLayer(function (layer) {
+                    if (layer instanceof L.Marker) {
+                        map.removeLayer(layer);
+                    }
+                });
+            }
+
+            // Function to clear the selected province and markers
+            function clearSelection() {
+                if (selectedProvinceLayer) {
+                    selectedProvinceLayer.setStyle({ fillOpacity: 0 });
+                    selectedProvinceLayer = null;
+                    selectedProvinceInfo.innerText = "";
+                    clearMarkers();
+                }
+            }
+
+            // Function to check if a point is inside a polygon
+            function isPointInPolygon(point, polygon) {
+                var x = point[0],
+                    y = point[1];
+                var inside = false;
+
+                for (
+                    var i = 0, j = polygon.length - 1;
+                    i < polygon.length;
+                    j = i++
+                ) {
+                    var xi = polygon[i][0],
+                        yi = polygon[i][1];
+                    var xj = polygon[j][0],
+                        yj = polygon[j][1];
+
+                    var intersect =
+                        yi > y != yj > y &&
+                        x < ((xj - xi) * (y - yi)) / (yj - yi) + xi;
+
+                    if (intersect) inside = !inside;
+                }
+
+                return inside;
+            }
+
+            // Function to zoom to the selected province
+            function zoomToSelectedProvince() {
+                if (selectedProvinceLayer) {
+                    var bounds = selectedProvinceLayer.getBounds();
+                    map.fitBounds(bounds);
+                }
+            }
+        </script>
+    </body>
+</html>
